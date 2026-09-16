@@ -119,6 +119,18 @@ img{max-width:100%;display:block;}
 .svc-book{background:none;border:1px solid var(--rg-main);color:var(--rg-main);padding:8px 16px;border-radius:4px;font-size:0.7rem;font-weight:600;cursor:pointer;text-transform:uppercase;letter-spacing:0.05em;transition:all 0.2s;}
 .svc-book:hover{background:var(--rg-main);color:#fff;}
 
+/* ---------- SERVICE CATEGORY TABS ---------- */
+.svc-tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:32px;}
+.svc-tab{
+  padding:10px 20px;border-radius:30px;background:var(--card);border:1px solid var(--line);
+  cursor:pointer;font-size:0.78rem;font-weight:600;color:var(--ink-soft);
+  text-transform:uppercase;letter-spacing:0.04em;transition:all 0.2s ease;white-space:nowrap;
+}
+.svc-tab:hover{border-color:var(--rg-main);color:var(--rg-main);}
+.svc-tab.active{background:var(--rg-main);border-color:var(--rg-main);color:#fff;}
+.svc-group-title{grid-column:1/-1;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--rg-dark);margin:6px 0 -4px;padding-top:10px;border-top:1px solid var(--line);}
+.svc-group-title:first-child{border-top:none;padding-top:0;}
+
 /* ---------- COMO FUNCIONA ---------- */
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
 @media(max-width:800px){.steps{grid-template-columns:1fr 1fr;}}
@@ -363,6 +375,7 @@ footer{background:var(--ink);color:var(--bg-soft);padding:60px 0 30px;}
       <h2>Serviços e valores</h2>
       <p>Escolha o procedimento ideal para você. Ao agendar, você já vê o horário disponível e escolhe como quer pagar.</p>
     </div>
+    <div class="svc-tabs" id="svcTabs"></div>
     <div class="svc-grid" id="svcGrid"></div>
   </div>
 </section>
@@ -454,33 +467,89 @@ footer{background:var(--ink);color:var(--bg-soft);padding:60px 0 30px;}
 <script>
 /* ===================== STORAGE KEYS (shared = todos veem) ===================== */
 const K_SERVICES = 'jalcara_services_v1';
+const K_SERVICES_VERSION = 'jalcara_services_version_v1';
 const K_BOOKINGS = 'jalcara_bookings_v1';
 const K_SETTINGS = 'jalcara_settings_v1';
+
+/* Bump this whenever DEFAULT_SERVICES below changes and the change should
+   overwrite whatever is already saved (used once to migrate the catalog). */
+const SERVICES_VERSION = 'v2-2026-09';
 
 let SERVICES = [];
 let BOOKINGS = [];
 let SETTINGS = { adminPin:'1234', pixKey:'contato@studiojessicaalcara.com.br', minPercent:30, halfPercent:50, workStart:'09:00', workEnd:'18:00', slotMinutes:60, closedWeekdays:[0] };
 
+const CATEGORIES = [
+  {id:'facial-corporal', label:'Estética Facial & Corporal'},
+  {id:'intima', label:'Depilação Íntima'},
+  {id:'feminina', label:'Epilação Feminina'},
+];
+
 const DEFAULT_SERVICES = [
-  {id:'s1', name:'Limpeza de Pele Profunda', price:120, duration:60, desc:'Higienização, esfoliação e extração para renovar a pele do rosto.'},
-  {id:'s2', name:'Design de Sobrancelha', price:40, duration:30, desc:'Modelagem personalizada com técnica de alinhamento facial.'},
-  {id:'s3', name:'Micropigmentação de Sobrancelha', price:350, duration:120, desc:'Técnica fio a fio para sobrancelhas naturais e definidas.'},
-  {id:'s4', name:'Drenagem Linfática', price:100, duration:50, desc:'Massagem para reduzir inchaço e melhorar a circulação.'},
-  {id:'s5', name:'Massagem Modeladora', price:90, duration:50, desc:'Ajuda a modelar contornos e reduzir medidas.'},
-  {id:'s6', name:'Peeling de Diamante', price:150, duration:45, desc:'Esfoliação mecânica para renovação celular da pele.'},
-  {id:'s7', name:'Microagulhamento Facial', price:220, duration:60, desc:'Estimula colágeno para firmeza e uniformidade da pele.'},
-  {id:'s8', name:'Botox Facial', price:450, duration:40, desc:'Aplicação para suavizar linhas de expressão.'},
+  /* ---------- ESTÉTICA FACIAL & CORPORAL ---------- */
+  {id:'s1', category:'facial-corporal', name:'Limpeza de Pele', price:180, duration:60, desc:'Higienização, esfoliação e extração para renovar a pele do rosto.'},
+  {id:'s2', category:'facial-corporal', name:'Peeling Diamante', price:180, duration:45, desc:'Esfoliação mecânica para renovação celular da pele.'},
+  {id:'s3', category:'facial-corporal', name:'Radiofrequência Rejuvenescimento', price:120, duration:45, desc:'Estimula colágeno e firma a pele do rosto.'},
+  {id:'s4', category:'facial-corporal', name:'Ultrassom Gordura Localizada', price:120, duration:45, desc:'Tecnologia para redução de gordura localizada.'},
+  {id:'s5', category:'facial-corporal', name:'Lipocavitação Gordura', price:280, duration:60, desc:'Tratamento corporal para redução de medidas.'},
+  {id:'s6', category:'facial-corporal', name:'Peeling Enzimático', price:120, duration:45, desc:'Renovação da pele com ação enzimática suave.'},
+  {id:'s7', category:'facial-corporal', name:'Peeling Químico', price:120, duration:45, desc:'Renovação celular profunda com ácidos.'},
+  {id:'s8', category:'facial-corporal', name:'Peeling Plasma', price:350, duration:60, desc:'Procedimento avançado para rejuvenescimento da pele.'},
+  {id:'s9', category:'facial-corporal', name:'Blefaroplastia Olhos (região)', price:450, duration:60, desc:'Tratamento para a região dos olhos.'},
+  {id:'s10', category:'facial-corporal', name:'Microagulhamento', price:150, duration:60, desc:'Estimula colágeno para firmeza e uniformidade da pele. A partir de R$150.'},
+  {id:'s11', category:'facial-corporal', name:'Endermologia', price:120, duration:45, desc:'Massagem mecânica para contorno corporal e circulação.'},
+  {id:'s12', category:'facial-corporal', name:'Pump-Up', price:100, duration:30, desc:'Tratamento para dar viço e volume.'},
+
+  /* ---------- DEPILAÇÃO ÍNTIMA ---------- */
+  {id:'d1', category:'intima', name:'Virilha Simples', price:40, duration:20, desc:''},
+  {id:'d2', category:'intima', name:'Virilha Simples (com ânus)', price:45, duration:25, desc:''},
+  {id:'d3', category:'intima', name:'Virilha Simples (com lábios)', price:40, duration:25, desc:''},
+  {id:'d4', category:'intima', name:'Virilha Cavada', price:45, duration:25, desc:''},
+  {id:'d5', category:'intima', name:'Virilha Total (sem ânus)', price:50, duration:30, desc:''},
+  {id:'d6', category:'intima', name:'Virilha Total (Tricotomia)', price:70, duration:35, desc:''},
+
+  /* ---------- EPILAÇÃO FEMININA ---------- */
+  {id:'e1', category:'feminina', name:'Abdômen', price:40, duration:20, desc:''},
+  {id:'e2', category:'feminina', name:'Ânus', price:40, duration:15, desc:''},
+  {id:'e3', category:'feminina', name:'Axilas', price:50, duration:15, desc:''},
+  {id:'e4', category:'feminina', name:'Braço', price:50, duration:25, desc:''},
+  {id:'e5', category:'feminina', name:'1/2 Braço', price:40, duration:20, desc:''},
+  {id:'e6', category:'feminina', name:'Buço', price:30, duration:10, desc:''},
+  {id:'e7', category:'feminina', name:'Costas', price:45, duration:25, desc:''},
+  {id:'e8', category:'feminina', name:'Coxas', price:40, duration:25, desc:''},
+  {id:'e9', category:'feminina', name:'Faixa 1', price:26, duration:15, desc:''},
+  {id:'e10', category:'feminina', name:'Faixa 2', price:30, duration:15, desc:''},
+  {id:'e11', category:'feminina', name:'Faixa Umbigo', price:20, duration:10, desc:''},
+  {id:'e12', category:'feminina', name:'Lábios', price:30, duration:15, desc:''},
+  {id:'e13', category:'feminina', name:'Nádegas', price:50, duration:20, desc:''},
+  {id:'e14', category:'feminina', name:'1/2 Nádegas', price:35, duration:15, desc:''},
+  {id:'e15', category:'feminina', name:'Nariz', price:25, duration:10, desc:''},
+  {id:'e16', category:'feminina', name:'Perna Inteira', price:60, duration:40, desc:''},
+  {id:'e17', category:'feminina', name:'1/2 Perna', price:50, duration:30, desc:''},
+  {id:'e18', category:'feminina', name:'Queixo', price:30, duration:10, desc:''},
+  {id:'e19', category:'feminina', name:'Rosto', price:55, duration:25, desc:''},
+  {id:'e20', category:'feminina', name:'Seios', price:25, duration:15, desc:''},
 ];
 
 /* ===================== LOAD / SAVE ===================== */
 async function loadAll(){
+  let storedVersion = null;
+  try{
+    const rv = await window.storage.get(K_SERVICES_VERSION, true);
+    storedVersion = rv && rv.value ? rv.value : null;
+  }catch(e){ storedVersion = null; }
+
   try{
     const r = await window.storage.get(K_SERVICES, true);
     SERVICES = r && r.value ? JSON.parse(r.value) : null;
   }catch(e){ SERVICES = null; }
-  if(!SERVICES || SERVICES.length===0){
+
+  if(!SERVICES || SERVICES.length===0 || storedVersion !== SERVICES_VERSION){
     SERVICES = DEFAULT_SERVICES;
-    try{ await window.storage.set(K_SERVICES, JSON.stringify(SERVICES), true); }catch(e){}
+    try{
+      await window.storage.set(K_SERVICES, JSON.stringify(SERVICES), true);
+      await window.storage.set(K_SERVICES_VERSION, SERVICES_VERSION, true);
+    }catch(e){}
   }
 
   try{
@@ -514,11 +583,33 @@ function uid(p){ return p+Date.now()+Math.random().toString(36).slice(2,7); }
 function esc(s){ const d=document.createElement('div'); d.innerText=s||''; return d.innerHTML; }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
-/* ===================== PUBLIC: SERVICES GRID ===================== */
+/* ===================== PUBLIC: SERVICES TABS + GRID ===================== */
+let activeSvcTab = 'todos';
+
+function catLabel(catId){
+  const c = CATEGORIES.find(c=>c.id===catId);
+  return c ? c.label : 'Outros';
+}
+
+function renderServiceTabs(){
+  const tabsEl = document.getElementById('svcTabs');
+  if(!tabsEl) return;
+  const usedCats = CATEGORIES.filter(c=> SERVICES.some(s=>s.category===c.id));
+  const tabs = [{id:'todos', label:'Todos'}, ...usedCats];
+  tabsEl.innerHTML = tabs.map(t=>
+    `<div class="svc-tab${activeSvcTab===t.id?' active':''}" data-tab="${t.id}">${esc(t.label)}</div>`
+  ).join('');
+  tabsEl.querySelectorAll('.svc-tab').forEach(el=>{
+    el.onclick = ()=>{ activeSvcTab = el.dataset.tab; renderServices(); };
+  });
+}
+
 function renderServices(){
+  renderServiceTabs();
   const grid = document.getElementById('svcGrid');
   grid.innerHTML = '';
-  SERVICES.forEach(s=>{
+
+  const buildCard = (s)=>{
     const card = document.createElement('div');
     card.className = 'svc-card';
     card.innerHTML = `
@@ -532,8 +623,25 @@ function renderServices(){
         <button class="svc-book" data-id="${s.id}">Agendar</button>
       </div>
     `;
-    grid.appendChild(card);
-  });
+    return card;
+  };
+
+  if(activeSvcTab==='todos'){
+    CATEGORIES.forEach(cat=>{
+      const items = SERVICES.filter(s=>s.category===cat.id);
+      if(items.length===0) return;
+      const title = document.createElement('div');
+      title.className = 'svc-group-title';
+      title.textContent = cat.label;
+      grid.appendChild(title);
+      items.forEach(s=> grid.appendChild(buildCard(s)));
+    });
+    // serviços sem categoria reconhecida
+    SERVICES.filter(s=>!CATEGORIES.some(c=>c.id===s.category)).forEach(s=> grid.appendChild(buildCard(s)));
+  } else {
+    SERVICES.filter(s=>s.category===activeSvcTab).forEach(s=> grid.appendChild(buildCard(s)));
+  }
+
   grid.querySelectorAll('.svc-book').forEach(btn=>{
     btn.onclick = ()=> openBooking(btn.dataset.id);
   });
@@ -633,13 +741,24 @@ function renderBkStep(){
         <button class="bk-next" id="bkNext" ${bk.serviceId?'':'disabled'}>Continuar</button>
       </div>`;
     const svcList = document.getElementById('svcList');
-    SERVICES.forEach(s=>{
+    const addOpt = (s)=>{
       const opt = document.createElement('div');
       opt.className = 'bk-service-opt'+(bk.serviceId===s.id?' picked':'');
       opt.innerHTML = `<span class="n">${esc(s.name)} <span style="color:var(--ink-soft);font-weight:400;font-size:0.8rem;">· ${s.duration}min</span></span><span class="p">${brl(s.price)}</span>`;
       opt.onclick = ()=>{ bk.serviceId = s.id; renderBkStep(); };
       svcList.appendChild(opt);
+    };
+    CATEGORIES.forEach(cat=>{
+      const items = SERVICES.filter(s=>s.category===cat.id);
+      if(items.length===0) return;
+      const h = document.createElement('div');
+      h.className = 'svc-group-title';
+      h.style.marginBottom = '4px';
+      h.textContent = cat.label;
+      svcList.appendChild(h);
+      items.forEach(addOpt);
     });
+    SERVICES.filter(s=>!CATEGORIES.some(c=>c.id===s.category)).forEach(addOpt);
     document.getElementById('bkBack').onclick = ()=>{ bk.step=1; renderBkStep(); };
     document.getElementById('bkNext').onclick = ()=>{ bk.step=3; renderBkStep(); };
   }
@@ -970,7 +1089,26 @@ function renderAdminServicos(body){
     </div>
   `;
   const rows = document.getElementById('svcRows');
-  SERVICES.forEach(s=>{
+  CATEGORIES.forEach(cat=>{
+    const items = SERVICES.filter(s=>s.category===cat.id);
+    if(items.length===0) return;
+    const h = document.createElement('div');
+    h.style.cssText = 'font-family:\'Cormorant Garamond\',serif;font-size:1.15rem;color:var(--rg-dark);margin:16px 0 8px;';
+    h.textContent = cat.label;
+    rows.appendChild(h);
+    items.forEach(s=>{
+      const row = document.createElement('div');
+      row.className = 'svc-admin-row';
+      row.innerHTML = `
+        <input value="${esc(s.name)}" data-f="name" data-id="${s.id}">
+        <input type="number" value="${s.price}" data-f="price" data-id="${s.id}" placeholder="Preço">
+        <input type="number" value="${s.duration}" data-f="duration" data-id="${s.id}" placeholder="Min">
+        <button class="small-btn danger" data-del="${s.id}">Excluir</button>
+      `;
+      rows.appendChild(row);
+    });
+  });
+  SERVICES.filter(s=>!CATEGORIES.some(c=>c.id===s.category)).forEach(s=>{
     const row = document.createElement('div');
     row.className = 'svc-admin-row';
     row.innerHTML = `
@@ -1003,10 +1141,13 @@ function renderAdminServicos(body){
   document.getElementById('addSvcBtn').onclick = async ()=>{
     const name = prompt('Nome do serviço:');
     if(!name) return;
+    const catPrompt = 'Categoria (digite o número):\n'+CATEGORIES.map((c,i)=>(i+1)+' - '+c.label).join('\n');
+    const catChoice = Number(prompt(catPrompt, '1'))-1;
+    const category = CATEGORIES[catChoice] ? CATEGORIES[catChoice].id : CATEGORIES[0].id;
     const price = Number(prompt('Preço (R$):','0'))||0;
     const duration = Number(prompt('Duração (minutos):','60'))||60;
     const desc = prompt('Descrição curta (opcional):','')||'';
-    SERVICES.push({id:uid('s'), name, price, duration, desc});
+    SERVICES.push({id:uid('s'), category, name, price, duration, desc});
     await saveServices();
     renderServices();
     renderAdminServicos(body);
